@@ -1,35 +1,67 @@
 package com.example.duckapp.randomduckpage
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.duckapp.model.Duck
-import com.example.duckapp.retrofit.RetrofitInst
+import com.example.duckapp.data.Duck
+import com.example.duckapp.data.DuckRepository
+import com.example.duckapp.data.Result
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import retrofit2.HttpException
-import java.io.IOException
+import javax.inject.Inject
 
-class RandomDuckPageViewModel : ViewModel() {
-    private val _duckLiveData = MutableLiveData<Duck?>()
-    val duckLiveData: LiveData<Duck?> = _duckLiveData
+@HiltViewModel
+class RandomDuckPageViewModel @Inject constructor(
+    private val duckRepository: DuckRepository
+) : ViewModel() {
+    private val _duck = MutableStateFlow(Duck("", ""))
+    val duck = _duck.asStateFlow()
+    val isLoading = MutableStateFlow(false)
 
     init {
-        getQuack()
+        viewModelScope.launch {
+            getRandomImage()
+        }
     }
 
-    fun getQuack(){
-        viewModelScope.launch {
-            try {
-                val response = RetrofitInst.api.getQuack()
-                if (response.isSuccessful) {
-                    _duckLiveData.value = response.body()
+    suspend fun getRandomImage() {
+        isLoading.emit(true)
+        duckRepository.getRandomImage("gif").collectLatest { result ->
+            when (result) {
+                is Result.Error -> {
+                    println("Result Error")
                 }
-            } catch (e: IOException) {
-                e.printStackTrace()
-            } catch (e: HttpException) {
-                e.printStackTrace()
+
+                is Result.Success -> {
+                    println("Result Success")
+                    result.data?.let { duck ->
+                        _duck.update { duck }
+                    }
+                }
             }
         }
+        isLoading.emit(false)
+    }
+
+    suspend fun getQuack() {
+        isLoading.emit(true)
+        duckRepository.getQuack().collectLatest { result ->
+            when (result) {
+                is Result.Error -> {
+                    println("Result Error")
+                }
+
+                is Result.Success -> {
+                    println("Result Success")
+                    result.data?.let { duck ->
+                        _duck.update { duck }
+                    }
+                }
+            }
+        }
+        isLoading.emit(false)
     }
 }

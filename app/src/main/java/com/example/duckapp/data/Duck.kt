@@ -1,4 +1,4 @@
-package com.example.duckapp.model
+package com.example.duckapp.data
 
 data class Duck(
     val message: String,
